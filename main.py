@@ -11,10 +11,10 @@ from dataset import get_cifar10
 
 parser = argparse.ArgumentParser(add_help=True)
 parser.add_argument(
-    "--arch",
+    "--model",
     type=str,
-    default="resnet20",
-    choices=[f"resnet{d}" for d in [20, 32, 44, 56, 110, 1202]],
+    default="resnet",
+    choices="resnet or convnext",
     help="model architecture",
 )
 parser.add_argument("--batch_size", type=int, default=256, help="batch size")
@@ -121,8 +121,11 @@ def main(args):
     world = mx.distributed.init()
     if world.size() > 1:
         print(f"Starting rank {world.rank()} of {world.size()}", flush=True)
-
-    model = getattr(resnet, args.arch)()
+    
+    if args.model=='resnet':
+        model = resnet.resnet20()
+    else:
+        model = convnext.ConvNeXt_Smol()
 
     print_zero(world, f"Number of params: {model.num_params() / 1e6:0.04f} M")
 
