@@ -1,18 +1,14 @@
-# CIFAR and ResNets
+# ConvNext on MLX
 
-An example of training a ResNet on CIFAR-10 with MLX. Several ResNet
-configurations in accordance with the original
-[paper](https://arxiv.org/abs/1512.03385) are available. The example also
-illustrates how to use [MLX Data](https://github.com/ml-explore/mlx-data) to
-load the dataset.
+Training a smol ConvNext model on CIFAR-10 using the MLX framework. I wrote this mostly as an exercise to learn MLX, and to refresh my memory on ConvNets.
+
+I used the [PyTorch implementation] as my reference; hyperparameters (kernel size in blocks/downsampling etc.) were adapted for CIFAR-10 based on [this implementation by Julius Ruseckas](https://juliusruseckas.github.io/ml/convnext-cifar10.html) and [this GitHub issue]().
+
+
 
 ## Pre-requisites
 
-Install the dependencies:
-
-```
-pip install -r requirements.txt
-```
+Follow the instructions on the [mlx-examples]() repository.
 
 ## Running the example
 
@@ -36,29 +32,12 @@ python main.py --help
 
 ## Results
 
-After training with the default `resnet20` architecture for 30 epochs, you
+After training with the default `ConvNeXt_Smol` architecture for 10 epochs, you
 should see the following results:
 
 ```
-Epoch: 29 | avg. Train loss 0.294 | avg. Train acc 0.897 | Throughput: 270.81 images/sec
-Epoch: 29 | Test acc 0.841
+Epoch: 9 | avg. Train loss 0.769 | avg. Train acc 0.730 | Throughput: 1270.30 images/sec
+Epoch: 9 | Test acc 0.724
 ```
 
-Note this was run on an M1 Macbook Pro with 16GB RAM.
-
-At the time of writing, `mlx` doesn't have built-in learning rate schedules.
-We intend to update this example once these features are added.
-
-## Distributed training
-
-The example also supports distributed data parallel training. You can launch a
-distributed training as follows:
-
-```shell
-$ cat >hostfile.json
-[
-    {"ssh": "host-to-ssh-to", "ips": ["ip-to-bind-to"]},
-    {"ssh": "host-to-ssh-to", "ips": ["ip-to-bind-to"]}
-]
-$ mlx.launch --verbose --hostfile hostfile.json main.py --batch 256 --epochs 5 --arch resnet20
-```
+Note this was run on an M1 Pro Macbook Pro with 32GB RAM.

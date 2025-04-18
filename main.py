@@ -5,18 +5,10 @@ from functools import partial
 import mlx.core as mx
 import mlx.nn as nn
 import mlx.optimizers as optim
-import resnet
 import convnext
 from dataset import get_cifar10
 
 parser = argparse.ArgumentParser(add_help=True)
-parser.add_argument(
-    "--model",
-    type=str,
-    default="resnet",
-    choices="resnet or convnext",
-    help="model architecture",
-)
 parser.add_argument("--batch_size", type=int, default=256, help="batch size")
 parser.add_argument("--epochs", type=int, default=30, help="number of epochs")
 parser.add_argument("--lr", type=float, default=1e-3, help="learning rate")
@@ -122,14 +114,10 @@ def main(args):
     if world.size() > 1:
         print(f"Starting rank {world.rank()} of {world.size()}", flush=True)
     
-    if args.model=='resnet':
-        model = resnet.resnet20()
-    else:
-        model = convnext.ConvNeXt_Smol()
-
+    model = convnext.ConvNeXt_Smol()
     print_zero(world, f"Number of params: {model.num_params() / 1e6:0.04f} M")
 
-    optimizer = optim.Adam(learning_rate=args.lr)
+    optimizer = optim.AdamW(learning_rate=args.lr)
 
     train_data, test_data = get_cifar10(args.batch_size)
     for epoch in range(args.epochs):

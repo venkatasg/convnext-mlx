@@ -15,8 +15,9 @@ class CNBlock(nn.Module):
     def __init__(
         self,
         dim,
-        layer_scale: float,
-        stochastic_depth_prob: float,
+        kernel_size=3,
+        layer_scale: float = 1e-6,
+        stochastic_depth_prob: float = 0.2,
         norm_layer: Optional[Callable[..., nn.Module]] = None,
     ) -> None:
         super().__init__()
@@ -24,11 +25,12 @@ class CNBlock(nn.Module):
             norm_layer = partial(nn.LayerNorm, eps=1e-6)
 
         self.block = nn.Sequential(
-            nn.Conv2d(in_channels=dim, out_channels=dim, kernel_size=7, padding=3, groups=dim, bias=True),
+            nn.Conv2d(in_channels=dim, out_channels=dim, kernel_size=kernel_size, padding=(kernel_size-1)//2, groups=dim, bias=True),
             nn.LayerNorm(dim),
             nn.Linear(input_dims=dim, output_dims=4*dim, bias=True),
             nn.GELU(),
-            nn.Linear(input_dims=4*dim, output_dims=dim, bias=True)
+            nn.Linear(input_dims=4*dim, output_dims=dim, bias=True),
+            # nn.Dropout(0.2)
         )
         self.layer_scale = mx.ones((1, 1, dim)) * layer_scale
         self.stochastic_depth = StochasticDepth(stochastic_depth_prob, "row")
@@ -68,8 +70,8 @@ class ConvNeXt(nn.Module):
             nn.Conv2d(
                 in_channels=3,
                 out_channels=firstconv_output_channels,
-                kernel_size=4,
-                stride=4,
+                kernel_size=1,
+                stride=1,
                 padding=0,
                 bias=True,
             )
@@ -108,15 +110,8 @@ class ConvNeXt(nn.Module):
         self.avgpool = AdaptiveAveragePool2D(1)
         lastconv_output_channels = channels_config[-1]
         self.classifier = nn.Sequential(
-            norm_layer(lastconv_output_channels), Flatten(1), nn.Linear(lastconv_output_channels, num_classes)
+            Flatten(1), norm_layer(lastconv_output_channels), nn.Linear(lastconv_output_channels, num_classes)
         )
-
-        for m in self.modules():
-            if isinstance(m, (nn.Conv2d, nn.Linear)):
-                # Values come from pytorch impl
-                m.weight = -0.02 * mx.random.truncated_normal(lower=-2, upper=-2, shape=m.weight.shape)
-                if m.bias is not None:
-                    m.bias = mx.zeros(shape=m.bias.shape)
     
     def num_params(self):
         nparams = sum(x.size for k, x in tree_flatten(self.parameters()))
@@ -138,13 +133,13 @@ class Flatten(nn.Module):
     
     def __call__(self, x: mx.array) -> mx.array:
         return mx.flatten(x, self.start_axis, self.end_axis)
-    
-def stochastic_depth(input: mx.array, p: float, mode: str, training: bool = True) -> mx.array:
+
+class StochasticDepth(nn.Module):
     """
     Implements the Stochastic Depth from `"Deep Networks with Stochastic Depth"
     <https://arxiv.org/abs/1603.09382>`_ used for randomly dropping residual
     branches of residual architectures.
-
+    
     Args:
         input (mx.array[N, ...]): The input tensor or arbitrary dimensions with the first one
                     being its batch i.e. a batch with ``N`` rows.
@@ -153,30 +148,9 @@ def stochastic_depth(input: mx.array, p: float, mode: str, training: bool = True
                     ``"batch"`` randomly zeroes the entire input, ``"row"`` zeroes
                     randomly selected rows from the batch.
         training: apply stochastic depth if is ``True``. Default: ``True``
-
+    
     Returns:
         mx.array[N, ...]: The randomly zeroed tensor.
-    """
-    if p < 0.0 or p > 1.0:
-        raise ValueError(f"drop probability has to be between 0 and 1, but got {p}")
-    if mode not in ["batch", "row"]:
-        raise ValueError(f"mode has to be either 'batch' or 'row', but got {mode}")
-    if not training or p == 0.0:
-        return input
-
-    survival_rate = 1.0 - p
-    if mode == "row":
-        size = [input.shape[0]] + [1] * (input.ndim - 1)
-    else:
-        size = [1] * input.ndim
-    noise = mx.random.bernoulli(survival_rate, shape=input.shape)
-    if survival_rate > 0.0:
-        noise = mx.divide(noise, survival_rate)
-    return input * noise
-
-class StochasticDepth(nn.Module):
-    """
-    See :func:`stochastic_depth`.
     """
 
     def __init__(self, p: float, mode: str) -> None:
@@ -185,7 +159,22 @@ class StochasticDepth(nn.Module):
         self.mode = mode
 
     def __call__(self, input: mx.array) -> mx.array:
-        return stochastic_depth(input, self.p, self.mode, self.training)
+        if self.p < 0.0 or self.p > 1.0:
+            raise ValueError(f"drop probability has to be between 0 and 1, but got {p}")
+        if self.mode not in ["batch", "row"]:
+            raise ValueError(f"mode has to be either 'batch' or 'row', but got {mode}")
+        if not self.training or self.p == 0.0:
+            return input
+        
+        survival_rate = 1.0 - self.p
+        if self.mode == "row":
+            size = [input.shape[0]] + [1] * (input.ndim - 1)
+        else:
+            size = [1] * input.ndim
+        noise = mx.random.bernoulli(survival_rate, shape=input.shape)
+        if survival_rate > 0.0:
+            noise = mx.divide(noise, survival_rate)
+        return input * noise
 
 
     def __repr__(self) -> str:
@@ -214,9 +203,5 @@ class AdaptiveAveragePool2D(nn.Module):
         return adaptive_average_pool2d(x, self.output_size)
 
 ## Model configurations go here
-
 def ConvNeXt_Smol(**kwargs):
-    return ConvNeXt(CNBlock, (16, 32, 64), (3, 3, 3), **kwargs)
-
-def ConvNeXt_Tiny(**kwargs):
-        return ConvNeXt(CNBlock, (96, 192, 384, 768), (3, 3, 9, 3), **kwargs)
+    return ConvNeXt(block=CNBlock, channels_config=(32, 64, 128, 256), blocks_config=(2, 2, 2, 2), layer_scale=1e-6, stochastic_depth_prob=0.1, **kwargs)
