@@ -2,7 +2,7 @@
 
 Training a smol ConvNext model on CIFAR-10 using the MLX framework. I wrote this mostly as an exercise to learn MLX, and to refresh my memory on ConvNets.
 
-I used the [PyTorch implementation] as my reference; hyperparameters (kernel size in blocks/downsampling etc.) were adapted for CIFAR-10 based on [this implementation by Julius Ruseckas](https://juliusruseckas.github.io/ml/convnext-cifar10.html) and [this GitHub issue]().
+I used the [PyTorch implementation](https://pytorch.org/vision/main/_modules/torchvision/models/convnext.html#convnext_tiny) as my reference; hyperparameters (kernel size in blocks/downsampling etc.) were adapted for CIFAR-10 based on [this implementation by Julius Ruseckas](https://juliusruseckas.github.io/ml/convnext-cifar10.html) and [this GitHub issue]().
 
 
 
