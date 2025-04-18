@@ -29,8 +29,7 @@ class CNBlock(nn.Module):
             nn.LayerNorm(dim),
             nn.Linear(input_dims=dim, output_dims=4*dim, bias=True),
             nn.GELU(),
-            nn.Linear(input_dims=4*dim, output_dims=dim, bias=True),
-            # nn.Dropout(0.2)
+            nn.Linear(input_dims=4*dim, output_dims=dim, bias=True)
         )
         self.layer_scale = mx.ones((1, 1, dim)) * layer_scale
         self.stochastic_depth = StochasticDepth(stochastic_depth_prob, "row")
@@ -204,4 +203,4 @@ class AdaptiveAveragePool2D(nn.Module):
 
 ## Model configurations go here
 def ConvNeXt_Smol(**kwargs):
-    return ConvNeXt(block=CNBlock, channels_config=(32, 64, 128, 256), blocks_config=(2, 2, 2, 2), layer_scale=1e-6, stochastic_depth_prob=0.1, **kwargs)
+    return ConvNeXt(block=CNBlock, channels_config=(32, 64, 128, 256), blocks_config=(2, 2, 2, 2), layer_scale=1e-6, stochastic_depth_prob=0.2, **kwargs)

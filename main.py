@@ -49,7 +49,7 @@ def train_epoch(model, train_iter, optimizer, epoch):
             count = mx.distributed.all_sum(count)
             return (stats / count).tolist()
 
-    state = [model.state, optimizer.state]
+    state = [model.state, optimizer.state, mx.random.state]
 
     @partial(mx.compile, inputs=state, outputs=state)
     def step(inp, tgt):
