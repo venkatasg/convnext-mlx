@@ -117,7 +117,7 @@ def main(args):
     model = convnext.ConvNeXt_Smol()
     print_zero(world, f"Number of params: {model.num_params() / 1e6:0.04f} M")
 
-    optimizer = optim.AdamW(learning_rate=args.lr)
+    optimizer = optim.Adam(learning_rate=args.lr)
 
     train_data, test_data = get_cifar10(args.batch_size)
     for epoch in range(args.epochs):

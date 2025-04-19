@@ -15,15 +15,12 @@ class CNBlock(nn.Module):
     def __init__(
         self,
         dim,
-        kernel_size=3,
-        layer_scale: float = 1e-6,
-        stochastic_depth_prob: float = 0.2,
-        norm_layer: Optional[Callable[..., nn.Module]] = None,
+        kernel_size,
+        layer_scale,
+        stochastic_depth_prob,
     ) -> None:
         super().__init__()
-        if norm_layer is None:
-            norm_layer = partial(nn.LayerNorm, eps=1e-6)
-
+        
         self.block = nn.Sequential(
             nn.Conv2d(in_channels=dim, out_channels=dim, kernel_size=kernel_size, padding=(kernel_size-1)//2, groups=dim, bias=True),
             nn.LayerNorm(dim),
@@ -47,7 +44,10 @@ class ConvNeXt(nn.Module):
         block: Optional[Callable[..., nn.Module]] = CNBlock,
         channels_config: Tuple[int] = (96, 192, 384, 768),
         blocks_config: Tuple[int] = (3, 3, 9, 3),
-        stochastic_depth_prob: float = 0.0,
+        conv_kernel: int = 7,
+        stem_kernel: int = 4,
+        downsample_kernel: int = 2,
+        stochastic_depth_prob: float = 0.1,
         layer_scale: float = 1e-6,
         num_classes: int = 10,
         norm_layer: Optional[Callable[..., nn.Module]] = None,
@@ -69,8 +69,8 @@ class ConvNeXt(nn.Module):
             nn.Conv2d(
                 in_channels=3,
                 out_channels=firstconv_output_channels,
-                kernel_size=1,
-                stride=1,
+                kernel_size=stem_kernel,
+                stride=stem_kernel,
                 padding=0,
                 bias=True,
             )
@@ -87,7 +87,7 @@ class ConvNeXt(nn.Module):
             for _ in range(blocks_config[bc_index]):
                 # adjust stochastic depth probability based on the depth of the stage block
                 sd_prob = stochastic_depth_prob * stage_block_id / (total_stage_blocks - 1.0)
-                stage.append(block(dim=channels_config[bc_index], layer_scale=layer_scale, stochastic_depth_prob=sd_prob, norm_layer=norm_layer))
+                stage.append(block(dim=channels_config[bc_index], kernel_size=conv_kernel, layer_scale=layer_scale, stochastic_depth_prob=sd_prob))
                 stage_block_id += 1
             layers.append(nn.Sequential(*stage))
             if bc_index<len(blocks_config)-1:
@@ -98,8 +98,8 @@ class ConvNeXt(nn.Module):
                         nn.Conv2d(
                             in_channels=channels_config[bc_index], 
                             out_channels=channels_config[bc_index+1], 
-                            kernel_size=2, 
-                            stride=2),
+                            kernel_size=downsample_kernel, 
+                            stride=downsample_kernel),
                     )
                 )
 
@@ -202,5 +202,24 @@ class AdaptiveAveragePool2D(nn.Module):
         return adaptive_average_pool2d(x, self.output_size)
 
 ## Model configurations go here
+
 def ConvNeXt_Smol(**kwargs):
-    return ConvNeXt(block=CNBlock, channels_config=(32, 64, 128, 256), blocks_config=(2, 2, 2, 2), layer_scale=1e-6, stochastic_depth_prob=0.2, **kwargs)
+    # 0.4M parameters
+    return ConvNeXt(block=CNBlock, channels_config=(16, 32, 64, 128), blocks_config=(2, 2, 2, 2), conv_kernel=3, stem_kernel=1, downsample_kernel=2, stochastic_depth_prob=0.05, **kwargs)
+
+
+def ConvNeXt_Tiny(**kwargs):
+    # 29M parameters
+    return ConvNeXt(block=CNBlock, channels_config=(96, 192, 384, 768), blocks_config=(3, 3, 9, 3), **kwargs)
+    
+def ConvNeXt_Small(**kwargs):
+    # 50M parameters
+    return ConvNeXt(block=CNBlock, channels_config=(96, 192, 384, 768), blocks_config=(3, 3, 27, 3), stochastic_depth_prob=0.4, **kwargs)
+
+def ConvNeXt_Base(**kwargs):
+    # 89M parameters
+    return ConvNeXt(block=CNBlock, channels_config=(128, 256, 512, 1024), blocks_config=(3, 3, 27, 3), stochastic_depth_prob=0.5, **kwargs)
+
+def ConvNeXt_Large(**kwargs):
+    # 198M parameters
+    return ConvNeXt(block=CNBlock, channels_config=(192, 384, 768, 1536), blocks_config=(3, 3, 27, 3), stochastic_depth_prob=0.5, **kwargs)
